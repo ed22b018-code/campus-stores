@@ -1,6 +1,7 @@
 (() => {
   const storageKey = "campus-stores.shift.v2";
   const legacyKey = "campus-stores.shift.v1";
+  const themeKey = "campus-stores.theme";
   const root = document.getElementById("campus-stores");
   const q = (selector) => root.querySelector(selector);
   const requests = [
@@ -517,6 +518,24 @@
     const focus = q("[data-autofocus]");
     if (focus) focus.focus();
   }
+  function applyTheme(theme) {
+    const scheme = theme === "light" || theme === "dark" ? theme : "";
+    root.style.colorScheme = scheme;
+    document.documentElement.style.colorScheme = scheme;
+    root
+      .querySelectorAll("[data-theme]")
+      .forEach((b) =>
+        b.setAttribute(
+          "aria-pressed",
+          String(b.dataset.theme === (scheme || "auto")),
+        ),
+      );
+    try {
+      localStorage.setItem(themeKey, scheme || "auto");
+    } catch {
+      // The theme still applies for this visit.
+    }
+  }
   function commit(msg) {
     if (msg) s.notice = msg;
     paint();
@@ -528,6 +547,8 @@
     }
   }
   root.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-theme]");
+    if (t) return applyTheme(t.dataset.theme);
     const b = e.target.closest("[data-action]");
     if (!b) return;
     const v = b.dataset.val;
@@ -761,6 +782,11 @@
     paint();
   }
   paint();
+  try {
+    applyTheme(localStorage.getItem(themeKey));
+  } catch {
+    applyTheme("auto");
+  }
   try {
     restore(
       JSON.parse(
