@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Campus Stores · Shift checks</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --ink: light-dark(#202c35, #ecf0f0);
+        --quiet: light-dark(#526370, #b9c5cb);
+        --paper: light-dark(#fff, #232a30);
+        --line: light-dark(#d2dcdf, #475158);
+        --ok: light-dark(#25523d, #bedac8);
+        --bad: light-dark(#8a2f15, #f5bba8);
+        background: light-dark(#f0f2f1, #191e21);
+        color: var(--ink);
+        font:
+          14px/1.5 "Inter",
+          Arial,
+          sans-serif;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 860px;
+        padding: 28px 18px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: -0.03em;
+      }
+      #summary {
+        font-weight: 700;
+        font-size: 16px;
+      }
+      #summary.pass {
+        color: var(--ok);
+      }
+      #summary.fail {
+        color: var(--bad);
+      }
+      p {
+        color: var(--quiet);
+      }
+      section {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 6px 16px 10px;
+        margin: 14px 0;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 10px 0 4px;
+      }
+      ol {
+        margin: 0;
+        padding-left: 22px;
+      }
+      li {
+        padding: 3px 0;
+      }
+      li::marker {
+        font-weight: 700;
+      }
+      li.pass::marker {
+        content: "✓  ";
+        color: var(--ok);
+      }
+      li.fail::marker {
+        content: "✗  ";
+        color: var(--bad);
+      }
+      li small {
+        display: block;
+        color: var(--bad);
+      }
+      button,
+      a.button {
+        font: inherit;
+        font-weight: 600;
+        color: var(--ink);
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 6px 11px;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      iframe {
+        width: 100%;
+        height: 560px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Campus Stores · Shift checks</h1>
+      <span id="summary" role="status">Running…</span>
+    </header>
+    <p>
+      Each group replays part of the Film Society shift on the real app
+      (<code>index.html</code>, loaded below) by clicking its buttons, then
+      checks what the desk would see. Your own saved shift is put back when the
+      checks finish.
+    </p>
+    <p>
+      <button type="button" id="rerun">Run again</button>
+      <a class="button" href="./">Open the app</a>
+    </p>
+    <div id="results"></div>
+    <details>
+      <summary>Show the app under test</summary>
+      <iframe id="app" title="Campus Stores under test"></iframe>
+    </details>
+    <script>
+      (() => {
+        const keys = [
+          "campus-stores.shift.v2",
+          "campus-stores.shift.v1",
+          "campus-stores.theme",
+        ];
+        const frame = document.getElementById("app");
+        const results = document.getElementById("results");
+        const summary = document.getElementById("summary");
+        let doc, root, group;
+        let passed = 0;
+        let failed = 0;
+
+        // Load a fresh copy of the app, optionally with a saved shift.
+        function boot(saved) {
+          localStorage.removeItem(keys[0]);
+          localStorage.removeItem(keys[1]);
+          if (saved) localStorage.setItem(saved[0], JSON.stringify(saved[1]));
+          return new Promise((resolve) => {
+            frame.onload = () => {
+              doc = frame.contentDocument;
+              root = doc.getElementById("campus-stores");
+              resolve();
+            };
+            frame.src = "./index.html?test=" + Date.now();
+          });
+        }
+        const $ = (s) => root.querySelector(s);
+        const click = (s) => {
+          const el = $(s);
+          if (!el) throw new Error("Button not found: " + s);
+          el.click();
+        };
+        const tab = (name) =>
+          click('[data-action="tab"][data-val="' + name + '"]');
+        const page = () => $("[data-page]").textContent.replace(/\s+/g, " ");
+        const status = () => $("[data-status]").textContent;
+        function fill(form, values) {
+          const f = $(form);
+          for (const [k, v] of Object.entries(values))
+            f.querySelector('[name="' + k + '"]').value = v;
+          return f;
+        }
+        function issue(asset, who = "Kabir Sen") {
+          tab("Loan register");
+          click('[data-action="new"]');
+          fill("form[data-issue]", {
+            req: "RQ-214",
+            asset,
+            who,
+            due: "Fri 8 pm",
+          }).requestSubmit();
+          return status();
+        }
+        function giveBack(num, unit, who) {
+          click('[data-action="return"][data-val="' + num + '"]');
+          if (who) fill("form[data-return]", { who });
+          click('form[data-return] button[value="' + unit + '"]');
+        }
+        function handOn(num, who, until) {
+          click('[data-action="out"][data-val="' + num + '"]');
+          fill("form[data-out]", { who, until }).requestSubmit();
+        }
+        function section(title) {
+          const s = document.createElement("section");
+          s.innerHTML = "<h2></h2><ol></ol>";
+          s.querySelector("h2").textContent = title;
+          results.append(s);
+          group = s.querySelector("ol");
+        }
+        function check(name, fn) {
+          const li = document.createElement("li");
+          li.textContent = name;
+          let ok = false;
+          let why = "";
+          try {
+            ok = fn() === true;
+            if (!ok) why = "Not what the desk should see.";
+          } catch (e) {
+            why = e.message;
+          }
+          li.className = ok ? "pass" : "fail";
+          if (!ok) {
+            const s = document.createElement("small");
+            s.textContent = why;
+            li.append(s);
+          }
+          ok ? passed++ : failed++;
+          group.append(li);
+        }
+
+        async function run() {
+          results.textContent = "";
+          passed = failed = 0;
+          summary.className = "";
+          summary.textContent = "Running…";
+          const kept = keys.map((k) => [k, localStorage.getItem(k)]);
+          try {
+            await boot();
+            section("Friday 3:45 pm · pickup (kept from the original)");
+            check("A camera is refused against the Film Society request", () =>
+              issue("CA-03").includes("outside the approved request"),
+            );
+            click('[data-action="cancel"]');
+            check("The projector in repair is never offered", () => {
+              click('[data-action="new"]');
+              const offered = [...root.querySelectorAll("[name=asset] option")];
+              click('[data-action="cancel"]');
+              return !offered.some((o) => o.value === "PR-06");
+            });
+            check("Projector, speaker and adapter are issued to Kabir", () =>
+              ["PR-04", "SP-02", "AD-12"].every((a) =>
+                issue(a).startsWith("Issued " + a + " to Kabir Sen"),
+              ),
+            );
+            check("A second speaker is refused", () =>
+              issue("SP-05").includes("approved quantity"),
+            );
+            click('[data-action="cancel"]');
+
+            section("Friday 7:30 pm · the kit comes back in pieces");
+            click('[data-action="advance"]');
+            tab("Loan register");
+            check("Rows name the equipment, not only the unit code", () =>
+              page().includes("USB-C → HDMI adapter"),
+            );
+            giveBack(402, "PR-04");
+            giveBack(403, "SP-02");
+            check(
+              "Projector and speaker close after tapping their labels",
+              () =>
+                page().includes("SP-02 returned by Kabir Sen") &&
+                !$('[data-action="return"][data-val="402"]'),
+            );
+            check("Undo reopens the last closed slip", () => {
+              click('[data-action="undo"]');
+              const reopened = !!$('[data-action="return"][data-val="403"]');
+              giveBack(403, "SP-02");
+              return reopened;
+            });
+            handOn(404, "Leela Das", "Sat 9 am");
+            check("Still out puts Leela on the adapter slip", () =>
+              page().includes("With Leela Das · Back Sat 9 am"),
+            );
+            check(
+              "The slip keeps who it was issued to and the original due time",
+              () => page().includes("Issued to Kabir Sen, due Fri 8 pm"),
+            );
+            check("The desk book gets a matching handover entry", () => {
+              tab("Desk book");
+              const ok =
+                page().includes("Loan register · Slip L-404") &&
+                page().includes("with Leela Das");
+              tab("Loan register");
+              return ok;
+            });
+
+            section("Saturday 9:00 am · the morning shift");
+            click('[data-action="advance"]');
+            tab("Loan register");
+            check(
+              "The adapter shows Leela and Expected now",
+              () =>
+                page().includes("With Leela Das") &&
+                page().includes("Expected now"),
+            );
+            check("Returned by is prefilled with Leela", () => {
+              click('[data-action="return"][data-val="404"]');
+              return $("form[data-return] [name=who]").value === "Leela Das";
+            });
+            check("Tapping AD-15 is refused and the slip stays open", () => {
+              click('form[data-return] button[value="AD-15"]');
+              return (
+                !$("[data-form-error]").hidden &&
+                status().includes("This slip is for AD-12")
+              );
+            });
+            check("Tapping AD-12 closes the slip in Leela's name", () => {
+              click('form[data-return] button[value="AD-12"]');
+              return status().includes("AD-12 returned by Leela Das");
+            });
+            check("Inventory shows the adapter back on the shelf", () => {
+              tab("Inventory");
+              return page().includes(
+                "AD-12 · USB-C → HDMI adapterBelkin AVC002 · C4On shelf",
+              );
+            });
+
+            section("If nobody records the handover");
+            await boot();
+            issue("AD-12");
+            click('[data-action="advance"]');
+            click('[data-action="advance"]');
+            tab("Loan register");
+            check(
+              "On Saturday the adapter is flagged Overdue since Fri 8 pm",
+              () => page().includes("Overdue since Fri 8 pm"),
+            );
+            check(
+              "Tara's microphone is not flagged before 10 am",
+              () => !page().includes("Overdue since Sat 10 am"),
+            );
+
+            section("Saved shifts");
+            await boot([
+              keys[1],
+              {
+                version: 1,
+                tab: "Loan register",
+                phase: 1,
+                selected: "",
+                filter: "All items",
+                loans: [
+                  {
+                    num: 401,
+                    req: "RQ-209",
+                    asset: "MI-09",
+                    who: "Tara Shah",
+                    due: "Sat 10 am",
+                    back: false,
+                  },
+                  {
+                    num: 402,
+                    req: "RQ-214",
+                    asset: "AD-15",
+                    who: "Kabir Sen",
+                    due: "Fri 8 pm",
+                    back: false,
+                  },
+                ],
+                notes: [],
+                editing: false,
+                onlyOpen: true,
+                notice: "",
+              },
+            ]);
+            check(
+              "A shift saved by the original version still loads",
+              () =>
+                page().includes("AD-15 Anker A8312") &&
+                $("[data-clock]").textContent.includes("7:30"),
+            );
+            await boot([keys[0], { version: 2, tab: "Nowhere", phase: 7 }]);
+            check("A damaged save is ignored and a fresh shift starts", () =>
+              $("[data-clock]").textContent.includes("3:45"),
+            );
+          } catch (e) {
+            section("Stopped");
+            check("Checks could not finish", () => {
+              throw e;
+            });
+          } finally {
+            for (const [k, v] of kept)
+              v === null
+                ? localStorage.removeItem(k)
+                : localStorage.setItem(k, v);
+          }
+          summary.className = failed ? "fail" : "pass";
+          summary.textContent = failed
+            ? failed + " of " + (passed + failed) + " checks failed"
+            : "All " + passed + " checks passed";
+        }
+
+        document.getElementById("rerun").addEventListener("click", run);
+        if (location.protocol === "file:") {
+          summary.className = "fail";
+          summary.textContent = "Open over HTTP to run";
+          results.innerHTML =
+            "<p>Browsers block this page from driving the app when opened as a file. Serve the folder with <code>python3 -m http.server 8000 --bind 127.0.0.1</code> and open <code>http://localhost:8000/tests.html</code>, or use the live link.</p>";
+        } else run();
+      })();
+    </script>
+  </body>
+</html>
