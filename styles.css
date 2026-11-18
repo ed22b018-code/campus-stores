@@ -38,6 +38,10 @@ body > main {
   --mark: light-dark(#bd502f, #f2a585);
   --ok: light-dark(#e3f1e8, #2d4838);
   --oktxt: light-dark(#25523d, #bedac8);
+  --warn: light-dark(#fbe4dc, #4b2b22);
+  --warntxt: light-dark(#8a2f15, #f5bba8);
+  --info: light-dark(#e1edf2, #22394a);
+  --infotxt: light-dark(#1f4a5e, #bfdbe8);
   background: var(--paper);
   color: var(--ink);
   font:
@@ -263,6 +267,61 @@ body > main {
   background: var(--ok);
   color: var(--oktxt);
 }
+#campus-stores .warn {
+  background: var(--warn);
+  color: var(--warntxt);
+  font-weight: 600;
+}
+#campus-stores .info {
+  background: var(--info);
+  color: var(--infotxt);
+}
+#campus-stores .slip .where {
+  color: var(--ink);
+  margin-top: 1px;
+}
+#campus-stores .slipside {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+#campus-stores .slip.acting .row {
+  background: var(--desk);
+  margin: 0 -8px;
+  padding-inline: 8px;
+}
+#campus-stores .actpanel {
+  background: var(--desk);
+  border-left: 3px solid var(--sel);
+  margin: 0 -8px 10px;
+  padding: 4px 12px 2px;
+}
+#campus-stores .actpanel .buttons {
+  margin-top: 4px;
+}
+#campus-stores .flash {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--ok);
+  color: var(--oktxt);
+}
+#campus-stores .flash.error {
+  background: var(--warn);
+  color: var(--warntxt);
+}
+#campus-stores .flash button {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+  padding: 3px 9px;
+}
 #campus-stores .record {
   margin-top: 14px;
   padding: 12px 13px;
@@ -326,6 +385,7 @@ body > main {
 @container (max-width:650px) {
   #campus-stores .shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
   }
   #campus-stores nav {
     border-right: 0;
@@ -361,6 +421,12 @@ body > main {
   }
   #campus-stores .row {
     gap: 5px;
+  }
+  #campus-stores .slip .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #campus-stores .slipside {
+    justify-content: flex-start;
   }
 }
 @media (pointer: coarse) {
