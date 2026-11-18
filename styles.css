@@ -318,6 +318,26 @@ body > main {
   margin: 0 -8px 10px;
   padding: 4px 12px 2px;
 }
+#campus-stores .unitpick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 10px;
+}
+#campus-stores .unitpick > span {
+  flex-basis: 100%;
+  font-size: 13px;
+  font-weight: 600;
+}
+#campus-stores .unitpick button {
+  display: grid;
+  text-align: left;
+  min-width: 150px;
+  padding: 8px 12px;
+}
+#campus-stores .unitpick button small {
+  font-weight: 400;
+}
 #campus-stores .actpanel .buttons {
   margin-top: 4px;
 }

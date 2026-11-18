@@ -419,23 +419,29 @@
         ").</p>" +
         '<div class="form">' +
         select(
-          "Unit on the counter",
-          "unit",
-          sameType.map((x) => [x.id, x.id + " · " + x.model]),
-          "",
-          true,
-        ) +
-        select(
           "Returned by",
           "who",
           people.map((p) => [p, p]),
           holder(l),
+          true,
         ) +
         "</div>" +
+        '<div class="unitpick" role="group" aria-label="Unit on the counter"><span>Tap the unit on the counter to close the slip</span>' +
+        sameType
+          .map(
+            (x) =>
+              '<button type="submit" name="unit" value="' +
+              esc(x.id) +
+              '"><strong>' +
+              esc(x.id) +
+              "</strong><small>" +
+              esc(x.model) +
+              "</small></button>",
+          )
+          .join("") +
+        "</div>" +
         formError +
-        '<div class="buttons"><button type="submit" class="primary">Close slip L-' +
-        l.num +
-        "</button>" +
+        '<div class="buttons">' +
         btn("Cancel", "cancel") +
         "</div></form>";
     }
@@ -667,7 +673,8 @@
     }
     if (f.matches("[data-return]")) {
       const l = getLoan(form.get("num"));
-      const unit = form.get("unit");
+      // The unit button that was tapped submits the form.
+      const unit = e.submitter ? e.submitter.value : form.get("unit");
       const who = form.get("who");
       if (!l || l.back || !getAsset(unit) || !people.includes(who)) return;
       if (unit !== l.asset) {
